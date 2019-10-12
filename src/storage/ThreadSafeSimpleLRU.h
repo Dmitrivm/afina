@@ -12,46 +12,51 @@ namespace Backend {
 
 /**
  * # SimpleLRU thread safe version
- *
+ * Single mutex for all operations
  *
  */
-class ThreadSafeSimplLRU : public SimpleLRU {
+class ThreadSafeSimpleLRU : public SimpleLRU {
 public:
-    ThreadSafeSimplLRU(size_t max_size = 1024) : SimpleLRU(max_size) {}
-    ~ThreadSafeSimplLRU() {}
+    ThreadSafeSimpleLRU(size_t max_size = 1024) : SimpleLRU(max_size) {}
+    ~ThreadSafeSimpleLRU() {}
 
     // see SimpleLRU.h
     bool Put(const std::string &key, const std::string &value) override {
-        // TODO: sinchronization
+        // TODO: synchronization
+        std::lock_guard<std::mutex> lock(mutex);
         return SimpleLRU::Put(key, value);
     }
 
     // see SimpleLRU.h
     bool PutIfAbsent(const std::string &key, const std::string &value) override {
-        // TODO: sinchronization
+        // TODO: synchronization
+        std::lock_guard<std::mutex> lock(mutex);
         return SimpleLRU::PutIfAbsent(key, value);
     }
 
     // see SimpleLRU.h
     bool Set(const std::string &key, const std::string &value) override {
-        // TODO: sinchronization
+        // TODO: synchronization
+        std::lock_guard<std::mutex> lock(mutex);
         return SimpleLRU::Set(key, value);
     }
 
     // see SimpleLRU.h
     bool Delete(const std::string &key) override {
-        // TODO: sinchronization
+        // TODO: synchronization
+        std::lock_guard<std::mutex> lock(mutex);
         return SimpleLRU::Delete(key);
     }
 
     // see SimpleLRU.h
     bool Get(const std::string &key, std::string &value) override {
-        // TODO: sinchronization
+        // TODO: synchronization
+        std::lock_guard<std::mutex> lock(mutex);
         return SimpleLRU::Get(key, value);
     }
 
 private:
-    // TODO: sinchronization primitives
+    std::mutex mutex; // use singe mutex for reading and writing both (TODO - implement more effective logic for simultaneous reading)
 };
 
 } // namespace Backend
