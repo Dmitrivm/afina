@@ -104,6 +104,7 @@ void SimpleLRU::reorderCache(std::reference_wrapper<lru_node> lastRefNode) {
   }
 }
 
+/*
 bool SimpleLRU::setAndReorder(const iter_type &it, const std::string &key, const std::string &value) {
 
   auto node = it->second;
@@ -121,6 +122,27 @@ bool SimpleLRU::setAndReorder(const iter_type &it, const std::string &key, const
   node.get().value = value;
 
   reorderCache(node);
+  return true;
+}
+*/
+
+bool SimpleLRU::setAndReorder(const iter_type &it, const std::string &key, const std::string &value) {
+
+  auto node = it->second;
+  if (node.get().key.size() + value.size() > _max_size) {
+    return false;
+  }
+
+  // bow we are sure that we have enought memory to stor new value
+  reorderCache(node); // reorder first with previous value
+  std::cout << "@AAAAAA" << std::endl;
+
+  std::size_t size_diff = node.get().key.size() + value.size() - node.get().value.size(); // size of cache item after value replace
+  while (actual_cache_size + size_diff > _max_size) {
+    removeHeadNode();
+  }
+  node.get().value = value;
+
   return true;
 }
 
