@@ -113,9 +113,9 @@ bool SimpleLRU::setAndReorder(const iter_type &it, const std::string &key, const
   }
 
   // bow we are sure that we have enought memory to stor new value
-  reorderCache(node); // reorder first with previous value
+  reorderCache(node); // reorder cache and set node to the tail with previous value
 
-  std::size_t size_diff = node.get().key.size() + value.size() - node.get().value.size(); // size of cache item after value replace
+  int64_t size_diff = node.get().key.size() + value.size() - node.get().value.size(); // size of cache item after value replace
   while (actual_cache_size + size_diff > _max_size) {
     removeHeadNode();
   }
