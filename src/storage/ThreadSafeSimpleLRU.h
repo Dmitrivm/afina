@@ -15,10 +15,10 @@ namespace Backend {
  * Single mutex for all operations
  *
  */
-class ThreadSafeSimpleLRU : public SimpleLRU {
+class ThreadSafeSimplLRU : public SimpleLRU {
 public:
-    ThreadSafeSimpleLRU(size_t max_size = 1024) : SimpleLRU(max_size) {}
-    ~ThreadSafeSimpleLRU() {}
+    ThreadSafeSimplLRU(size_t max_size = 1024) : SimpleLRU(max_size) {}
+    ~ThreadSafeSimplLRU() {}
 
     // see SimpleLRU.h
     bool Put(const std::string &key, const std::string &value) override {
