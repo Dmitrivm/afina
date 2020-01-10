@@ -146,7 +146,7 @@ void ServerImpl::OnRun(const uint32_t n_workers) {
 
                 std::set<int>::iterator it;
                 it = active_clients.insert(client_socket).first;
-                std::thread handler = std::thread(&ServerImpl::handleConnection, this, it);
+                std::thread handler = std::thread(&ServerImpl::handleConnection, this, client_socket);
                 handler.detach();
 
             } else {
@@ -166,7 +166,7 @@ void ServerImpl::OnRun(const uint32_t n_workers) {
     _logger->warn("Network stopped");
 }
 
-void ServerImpl::handleConnection(std::set<int>::iterator it) {
+void ServerImpl::handleConnection(int client_socket) {
 
     // start new handler
     _logger->debug("open new connection");
@@ -174,7 +174,6 @@ void ServerImpl::handleConnection(std::set<int>::iterator it) {
     Protocol::Parser parser;
     std::string argument_for_command;
     std::unique_ptr<Execute::Command> command_to_execute;
-    int client_socket = *it;
 
     try {
         int readed_bytes = -1;
@@ -256,7 +255,10 @@ void ServerImpl::handleConnection(std::set<int>::iterator it) {
     _logger->debug("exit");
     {
         std::lock_guard<std::mutex> lk(_mutex);
+
+        auto it = active_clients.find(client_socket);
         active_clients.erase(it);
+        
         close(client_socket);
         if (active_clients.empty()) {
             _logger->debug("closed");

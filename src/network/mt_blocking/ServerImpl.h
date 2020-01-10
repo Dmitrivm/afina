@@ -43,7 +43,7 @@ protected:
     void OnRun(const uint32_t n_workers);
 
 private:
-    void handleConnection(std::set<int>::iterator it);
+    void handleConnection(int client_socket);
 
     // Logger instance
     std::shared_ptr<spdlog::logger> _logger;
