@@ -27,8 +27,8 @@ bool Parser::Parse(const char *input, const size_t size, size_t &parsed) {
         switch (state) {
         case State::sName: {
             if (c == ' ' || c == '\r') {
-                // std::cout << "parser debug: name='" << name << "'" << std::endl;
-                if (name == "set" || name == "add" || name == "append" || name == "prepend") {
+                std::cout << "Parser debug: name='" << name << "'" << std::endl;
+                if (name == "set" || name == "add" || name == "append" || name == "prepend" || name == "replace") {
                     state = State::spKey;
                 } else if (name == "get" || name == "gets") {
                     state = State::sgKey;
