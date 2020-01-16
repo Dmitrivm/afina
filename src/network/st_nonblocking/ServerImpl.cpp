@@ -122,10 +122,10 @@ void ServerImpl::OnRun() {
     }
 
     bool run = true;
-    std::array<struct epoll_event, 64> mod_list;
+    std::array<struct epoll_event, 64> mod_list; // 64 - by design (empirical number by Filipp)
     while (run) {
         int nmod = epoll_wait(epoll_descr, &mod_list[0], mod_list.size(), -1);
-        _logger->debug("Acceptor wokeup: {} events", nmod);
+        _logger->debug("Acceptor wakeup: {} events", nmod);
 
         for (int i = 0; i < nmod; i++) {
             struct epoll_event &current_event = mod_list[i];
@@ -138,24 +138,25 @@ void ServerImpl::OnRun() {
                 continue;
             }
 
-            // That is some connection!
+            // Process non-server socket event
             Connection *pc = static_cast<Connection *>(current_event.data.ptr);
 
             auto old_mask = pc->_event.events;
             if ((current_event.events & EPOLLERR) || (current_event.events & EPOLLHUP)) {
                 pc->OnError();
-
             }
-            // clisent close connection
+
+            // closed connection
             else if (current_event.events & EPOLLRDHUP) {
                 pc->OnClose();
             } else {
                 // Depends on what connection wants...
                 if (current_event.events & EPOLLIN) {
-                    _logger->debug("in do read");
+                    _logger->debug("Socket is ready for reading");
                     pc->DoRead();
                 }
                 if (current_event.events & EPOLLOUT) {
+                    _logger->debug("Socket is ready for writing");
                     pc->DoWrite();
                 }
             }

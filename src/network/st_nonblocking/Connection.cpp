@@ -1,6 +1,8 @@
 #include "Connection.h"
 
 #include <iostream>
+
+// writev function
 #include <sys/uio.h>
 
 namespace Afina {
@@ -14,7 +16,9 @@ void Connection::Start() {
 }
 
 // See Connection.h
-void Connection::OnError() { alive = false; }
+void Connection::OnError() {
+    alive = false;
+}
 
 // See Connection.h
 void Connection::OnClose() {
@@ -31,7 +35,7 @@ void Connection::DoRead() {
             _logger->debug("Got {} bytes from socket", readed_bytes);
             length -= readed_bytes;
             offset += readed_bytes;
-            // Single block of data readed from the socket could trigger inside actions a multiple times,
+            // Single block of data read from the socket could trigger inside actions a multiple times,
             // for example:
             // - read#0: [<command1 start>]
             // - read#1: [<command1 end> <argument> <command2> <argument for command 2> <command3> ... ]
@@ -46,7 +50,7 @@ void Connection::DoRead() {
                         _logger->debug("Found new command: {} in {} bytes", parser.Name(), parsed);
                         command_to_execute = parser.Build(arg_remains);
                         if (arg_remains > 0) {
-                            arg_remains += 2;
+                            arg_remains += 2; // magic
                         }
                     }
 
@@ -78,19 +82,21 @@ void Connection::DoRead() {
                 if (command_to_execute && arg_remains == 0) {
                     _logger->debug("Start command execution");
 
-                    std::string result;
-                    command_to_execute->Execute(*pStorage, argument_for_command, result);
+                    std::string ans;
+                    command_to_execute->Execute(*pStorage, argument_for_command, ans);
 
-                    // Send response
-                    result += "\r\n";
-                    result_buffer.push_back(result);
-                    _event.events |= EPOLLOUT;
+                    ans += "\r\n";
+                    _logger->debug("Result {}", ans.c_str());
+                    result_buffer.push_back(ans);
+                    if (not(EPOLLOUT & _event.events)) {
+                        _event.events |= EPOLLOUT;
+                    }
                     // Prepare for the next command
                     command_to_execute.reset();
                     argument_for_command.resize(0);
                     parser.Reset();
                 }
-            } // while (readed_bytes)
+            } // while (read_bytes)
         }
 
         if (readed_bytes == 0) {
@@ -113,30 +119,31 @@ void Connection::DoWrite() {
 
     struct iovec output_buffers[output_size];
     for (int i = 0; i < output_size; i++) {
-        output_buffers[i].iov_base = &result_buffer[i];
+        output_buffers[i].iov_base = &result_buffer[i][0];
         output_buffers[i].iov_len = result_buffer[i].size();
     }
 
-    output_buffers[0].iov_base = (char *)output_buffers[0].iov_base + last_writed_bytes;
-    output_buffers[0].iov_len -= last_writed_bytes;
+    output_buffers[0].iov_base = (char *)output_buffers[0].iov_base + last_written_bytes;
+    output_buffers[0].iov_len -= last_written_bytes;
 
-    int writed_buffers;
-    for (writed_buffers = 0; writed_buffers < output_size; writed_buffers++) {
-        last_writed_bytes =
-            write(_socket, output_buffers[writed_buffers].iov_base, output_buffers[writed_buffers].iov_len);
-        // error occured
-        if (last_writed_bytes < 0) {
-            alive = false;
-            throw std::runtime_error(std::string(strerror(errno)));
-        }
-        // output buffer is filled up
-        else if (!last_writed_bytes) {
+    ssize_t written_bytes;
+
+    if ((written_bytes = writev(_socket, output_buffers, output_size)) < 1) {
+        alive = false;
+        throw std::runtime_error(std::string(strerror(errno)));
+    }
+
+    int written_iov = 0;
+    for (written_iov = 0; written_iov < output_size; written_iov++) {
+        written_bytes -= output_buffers[written_iov].iov_len;
+        if (written_bytes < 0) {
+            last_written_bytes = output_buffers[written_iov].iov_len + written_bytes;
             break;
         }
     }
 
-    result_buffer.erase(result_buffer.begin(), result_buffer.begin() + writed_buffers);
-    // all buffers are writed
+    result_buffer.erase(result_buffer.begin(), result_buffer.begin() + written_iov);
+    // all buffers are written
     if (result_buffer.empty()) {
         _event.events ^= EPOLLOUT;
     }

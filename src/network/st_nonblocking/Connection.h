@@ -43,7 +43,7 @@ private:
 
     int _socket;
     struct epoll_event _event;
-    // Connection States -------------------------------------------------------
+
     bool alive;
     std::size_t arg_remains;
     Protocol::Parser parser;
@@ -54,8 +54,8 @@ private:
     size_t length, offset;
     char client_buffer[4096];
     std::vector<std::string> result_buffer;
-    size_t last_writed_bytes;
-    //--------------------------------------------------------------------------
+    size_t last_written_bytes;
+
 };
 
 } // namespace STnonblock
