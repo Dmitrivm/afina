@@ -76,9 +76,22 @@ void ServerImpl::Start(uint16_t port, uint32_t n_acceptors, uint32_t n_workers) 
         throw std::runtime_error("Socket listen() failed: " + std::string(strerror(errno)));
     }
 
+    // Start IO workers
+     _data_epoll_fd = epoll_create1(0);
+     if (_data_epoll_fd == -1) {
+         throw std::runtime_error("Failed to create epoll file descriptor: " + std::string(strerror(errno)));
+     }
+
     _event_fd = eventfd(0, EFD_NONBLOCK);
     if (_event_fd == -1) {
         throw std::runtime_error("Failed to create epoll file descriptor: " + std::string(strerror(errno)));
+    }
+
+    struct epoll_event event;
+    event.events = EPOLLIN;
+    event.data.ptr = nullptr;
+    if (epoll_ctl(_data_epoll_fd, EPOLL_CTL_ADD, _event_fd, &event)) {
+        throw std::runtime_error("Failed to add eventfd descriptor to epoll");
     }
 
     // before: single async server: _work_thread = std::thread(&ServerImpl::OnRun, this);
