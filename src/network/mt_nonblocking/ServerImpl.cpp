@@ -38,7 +38,7 @@ ServerImpl::~ServerImpl() {}
 // See Server.h
 void ServerImpl::Start(uint16_t port, uint32_t n_acceptors, uint32_t n_workers) {
     _logger = pLogging->select("network");
-    _logger->info("Start mt_nonblocking network service");
+    _logger->info("Start st_nonblocking network service");
 
     sigset_t sig_mask;
     sigemptyset(&sig_mask);
@@ -76,31 +76,18 @@ void ServerImpl::Start(uint16_t port, uint32_t n_acceptors, uint32_t n_workers) 
         throw std::runtime_error("Socket listen() failed: " + std::string(strerror(errno)));
     }
 
-    // Start IO workers
-    _data_epoll_fd = epoll_create1(0);
-    if (_data_epoll_fd == -1) {
-        throw std::runtime_error("Failed to create epoll file descriptor: " + std::string(strerror(errno)));
-    }
-
     _event_fd = eventfd(0, EFD_NONBLOCK);
     if (_event_fd == -1) {
         throw std::runtime_error("Failed to create epoll file descriptor: " + std::string(strerror(errno)));
     }
 
-    struct epoll_event event;
-    event.events = EPOLLIN;
-    event.data.ptr = nullptr;
-    if (epoll_ctl(_data_epoll_fd, EPOLL_CTL_ADD, _event_fd, &event)) {
-        throw std::runtime_error("Failed to add eventfd descriptor to epoll");
-    }
-
+    // before: single async server: _work_thread = std::thread(&ServerImpl::OnRun, this);
     _workers.reserve(n_workers);
     for (int i = 0; i < n_workers; i++) {
         _workers.emplace_back(pStorage, pLogging);
         _workers.back().Start(_data_epoll_fd);
     }
 
-    // Start acceptors
     _acceptors.reserve(n_acceptors);
     for (int i = 0; i < n_acceptors; i++) {
         _acceptors.emplace_back(&ServerImpl::OnRun, this);
@@ -126,7 +113,6 @@ void ServerImpl::Join() {
     for (auto &t : _acceptors) {
         t.join();
     }
-
     for (auto &w : _workers) {
         w.Join();
     }
@@ -168,7 +154,7 @@ void ServerImpl::OnRun() {
                 continue;
             }
 
-            for (;;) {
+            while (true) {
                 struct sockaddr in_addr;
                 socklen_t in_len;
 
@@ -193,7 +179,7 @@ void ServerImpl::OnRun() {
                 }
 
                 // Register the new FD to be monitored by epoll.
-                Connection *pc = new Connection(infd);
+                Connection *pc = new Connection(infd, pStorage, _logger);
                 if (pc == nullptr) {
                     throw std::runtime_error("Failed to allocate connection");
                 }
@@ -215,6 +201,6 @@ void ServerImpl::OnRun() {
     _logger->warn("Acceptor stopped");
 }
 
-} // namespace MTnonblock
+} // namespace STnonblock
 } // namespace Network
 } // namespace Afina
